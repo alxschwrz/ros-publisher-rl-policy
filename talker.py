@@ -43,9 +43,10 @@ def talker():
     model = MultiInputPolicy.load(MODEL_PATH)
     while not rospy.is_shutdown():
         ## listen to observation
+        # todo: how do i get information here
 
         ## convert observation to format {'observation': [1x14], 'desired_goal':[1x3], 'achieved_goal':[1x3]
-        obs = convert_observation()
+        obs = convert_observation(obs)
 
         action, _ = model.predict(obs, deterministic=True)
 
