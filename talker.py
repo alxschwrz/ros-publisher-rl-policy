@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import collections
 import rospy
-from std_msgs import Floar32MultiArray
+from std_msgs.msg import Float32MultiArray
 from stable_baselines3.sac.policies import MultiInputPolicy
 from forwardkinematics.urdfFks.pandaFk import PandaFk
 import numpy as np
