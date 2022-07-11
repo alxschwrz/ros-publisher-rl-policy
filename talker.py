@@ -6,15 +6,8 @@ from stable_baselines3.sac.policies import MultiInputPolicy
 from forwardkinematics.urdfFks.pandaFk import PandaFk
 import numpy as np
 
-
 MODEL_PATH = "/rl_policy.pkl"
 ACTION_GAIN = 0.1
-
-def get_ee_pos(obs: dict) -> np.ndarray:
-        fk = PandaFk()
-        joint_states = obs['joint_state']['position']
-        achieved_goal = fk.fk(joint_states, -1, positionOnly=True)
-        return achieved_goal
 
 
 def flatten_observation(observation_dictonary: dict) -> np.ndarray:
@@ -28,39 +21,68 @@ def flatten_observation(observation_dictonary: dict) -> np.ndarray:
     return observation_array
 
 
-def convert_observation(obs: dict, goal: np.ndarray ) -> dict:
-    goalEnvObs = collections.OrderedDict()
-    goalEnvObs['observation']   = np.array(flatten_obervations(obs), dtype=np.float32)
-    goalEnvObs['achieved_goal'] = np.array(get_ee_pos(obs), dtype = np.float32)
-    goalEnvObs['desired_goal']  = np.array(goal, dtype = np.float32)
-    return goalEnvObs
+class RosActionCommunicator:
+
+    def __init__(self):
+        self._model_path = "/rl_policy.pkl"
+        self._action_gain = 0.1
+        self._fk = PandaFk()
+        self._published_action = Float32MultiArray()
+        self.rate = rospy.Rate(100)
+        self.load_model()
+
+    def load_model(self) -> None:
+        self._model = MultiInputPolicy.load(MODEL_PATH)
+
+    def get_ee_pos(self, obs) -> np.ndarray:
+        joint_states = obs['joint_state']['position']
+        achieved_goal = self._fk.fk(joint_states, -1, positionOnly=True)
+        return achieved_goal
+
+    def convert_observation(self, obs: dict, goal: np.ndarray) -> dict:
+        goalEnvObs = collections.OrderedDict()
+        goalEnvObs['observation'] = np.array(flatten_observation(obs), dtype=np.float32)
+        goalEnvObs['achieved_goal'] = np.array(self.get_ee_pos(obs), dtype=np.float32)
+        goalEnvObs['desired_goal'] = np.array(goal, dtype=np.float32)
+        return goalEnvObs
+
+    def talker(self):
+        pub = rospy.Publisher('chatter', Float32MultiArray, queue_size=10)
+        rospy.init_node('rl_agent_actions', anonymous=True)
+        while not rospy.is_shutdown():
+            # todo: how to listen to observation information?
+            self.subscribe_joint_states()
+            obs = dict()
+            goal = np.zeros(3)
+
+            obs = self.convert_observation(obs, goal)
+
+            action, _ = self._model.predict(obs, deterministic=True)
+
+            action = action * self._action_gain
+
+            self._published_action.data = action
+            rospy.loginfo(self._published_action)
+            pub.publish(self._published_action)
+            self.rate.sleep()
 
 
-def talker():
-    pub = rospy.Publisher('chatter', Float32MultiArray, queue_size=10)
-    rospy.init_node('rl_agent_actions', anonymous=True)
-    rate = rospy.Rate(100) #Hz
-    model = MultiInputPolicy.load(MODEL_PATH)
-    while not rospy.is_shutdown():
-        ## listen to observation
-        # todo: how do i get information here
+    def subscriber_callback(self, data):
+        rospy.loginfo("Joint states: {}", data.data)
+        ## get goal and joint_state information and store where?
 
-        ## convert observation to format {'observation': [1x14], 'desired_goal':[1x3], 'achieved_goal':[1x3]
-        obs = convert_observation(obs)
 
-        action, _ = model.predict(obs, deterministic=True)
+    def subscribe_joint_states(self):
+        rospy.init_node('joint_state_listener', anonymous=True)
 
-        action = action * ACTION_GAIN
+        rospy.Subscriber('chatter_XY', Float32MultiArray, self.subscriber_callback) # todo: what exactly is chatter
 
-        published_action = Float32MultiArray()
-        published_action.data = action
-        rospy.loginfo(published_action)
-        pub.publish(published_action)
-        rate.sleep()
+        rospy.spin()
 
 
 if __name__ == '__main__':
     try:
-        talker()
+        communicator = RosActionCommunicator()
+        communicator.talker()
     except rospy.ROSInterruptException:
         pass
