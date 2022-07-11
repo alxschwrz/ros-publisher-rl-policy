@@ -10,9 +10,9 @@ MODEL_PATH = "/rl_policy.pkl"
 ACTION_GAIN = 0.1
 
 
-def flatten_observation(observation_dictonary: dict) -> np.ndarray:
+def flatten_observation(observation_dictionary: dict) -> np.ndarray:
     observation_list = []
-    for val in observation_dictonary.values():
+    for val in observation_dictionary.values():
         if isinstance(val, np.ndarray):
             observation_list += val.tolist()
         elif isinstance(val, dict):
