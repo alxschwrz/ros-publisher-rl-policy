@@ -45,7 +45,7 @@ class RosActionCommunicator:
             action = action * self._action_gain
             self._published_action.data = action
             self.action_publisher.publish(self._published_action)
-            
+
 
     def load_model(self) -> None:
         rospack = rospkg.RosPack()
@@ -68,7 +68,6 @@ class RosActionCommunicator:
     def subscriber_callback(self, data):
         self._joint_states['joint_states']['position'] = np.array(data.position[3:10])
         self._joint_states['joint_states']['velocity'] = np.array(data.velocity[3:10])
-        print(self._joint_states)
 
 
 if __name__ == '__main__':
