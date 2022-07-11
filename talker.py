@@ -17,7 +17,6 @@ def flatten_observation(observation_dictionary: dict) -> np.ndarray:
         elif isinstance(val, dict):
             observation_list += flatten_observation(val).tolist()
     observation_array = np.array(observation_list)
-    print(observation_array)
     return observation_array
 
 
